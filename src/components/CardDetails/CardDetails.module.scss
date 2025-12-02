@@ -1,3 +1,6 @@
 .root {
   cursor: default;
+  pointer-events: all;
+  position: relative;
+  z-index: 1;
 }

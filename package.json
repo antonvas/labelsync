@@ -4,7 +4,8 @@
     "dev": "vite",
     "build": "tsc && vite build -c options.config.ts && vite build -c content.config.ts",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "./release.sh"
   },
   "dependencies": {
     "classnames": "^2.5.1",
