@@ -7,7 +7,8 @@ export function buildArray(value: string): string[] {
 export function getColumnsSelector(prColumns: string[]): string {
     const selectors: string[] = [];
     document.querySelectorAll(SELECTORS.columnHeader).forEach((header, index) => {
-        const columnTitle = header.getAttribute('aria-label');
+        // Atlassian appends ", total issue count: N" to the aria-label, so strip it off.
+        const columnTitle = header.getAttribute('aria-label')?.split(', total issue count:')[0];
         if (!columnTitle) {
             throw new Error('Can\'t find column headers');
         }
