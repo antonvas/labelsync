@@ -11,6 +11,14 @@ type JiraIssueDetailData = {
     detail?: {pullRequests?: RequestDetailsData[]}[]
 }
 
+type JiraDevSummaryData = {
+    summary?: {
+        pullrequest?: {
+            byInstanceType?: Record<string, { count: number }>
+        }
+    }
+}
+
 type GitHubDetails = {
     user: UserData
     requested_reviewers: UserData[]
@@ -24,6 +32,12 @@ type GitHubReview = {
 
 export default class GitHubFetcher implements DataFetcher {
     private readonly accessToken: string = '';
+
+    // The GitHub integration is site-wide, so its applicationType is the same for
+    // every card. Discover it once and reuse it across all cards.
+    private applicationType?: string;
+
+    private discovery?: Promise<string | undefined>;
 
     constructor(accessToken: string) {
         this.accessToken = accessToken;
@@ -39,10 +53,43 @@ export default class GitHubFetcher implements DataFetcher {
         });
     }
 
+    private async fetchApplicationType(issueId: string): Promise<string | undefined> {
+        const { summary } = await fetchJiraRest<JiraDevSummaryData>(
+            `/dev-status/latest/issue/summary?issueId=${issueId}`,
+        );
+        return Object.keys(summary?.pullrequest?.byInstanceType || {})[0];
+    }
+
+    private async getApplicationType(issueId: string): Promise<string | undefined> {
+        if (this.applicationType) {
+            return this.applicationType;
+        }
+        // Collapse the initial burst of cards into a single summary request.
+        if (!this.discovery) {
+            this.discovery = this.fetchApplicationType(issueId);
+        }
+        let applicationType = await this.discovery;
+        if (!applicationType) {
+            // The seed issue had no PRs, so it revealed nothing. Retry with this issue.
+            this.discovery = undefined;
+            applicationType = await this.fetchApplicationType(issueId);
+        }
+        if (applicationType) {
+            this.applicationType = applicationType;
+        }
+        return applicationType;
+    }
+
     async getRequestsList(cardKey: string): Promise<RequestDetailsData[]> {
         const { id } = await fetchJiraRest<JiraCardData>(`/api/3/issue/${cardKey}?fields=id`);
+
+        const applicationType = await this.getApplicationType(id);
+        if (!applicationType) {
+            return [];
+        }
+
         const { detail } = await fetchJiraRest<JiraIssueDetailData>(
-            `/dev-status/latest/issue/detail?issueId=${id}&applicationType=GitHub&dataType=pullrequest`,
+            `/dev-status/latest/issue/detail?issueId=${id}&applicationType=${applicationType}&dataType=pullrequest`,
         );
 
         return detail?.[0]?.pullRequests?.map((item) => ({
