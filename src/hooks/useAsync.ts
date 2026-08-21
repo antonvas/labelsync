@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef } from 'react';
+import { error } from '@/utils/debug.ts';
 
 interface State<T> {
     data?: T
@@ -71,10 +72,11 @@ export function useAsync<T = unknown>(
                 if (cancelRequest.current) return;
 
                 dispatch({ type: 'fetched', payload: data });
-            } catch (error) {
+            } catch (e) {
+                error('useAsync callback failed:', (e as Error).message, e);
                 if (cancelRequest.current) return;
 
-                dispatch({ type: 'error', payload: error as Error });
+                dispatch({ type: 'error', payload: e as Error });
             }
         };
 

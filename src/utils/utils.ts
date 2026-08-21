@@ -1,4 +1,5 @@
 import { SELECTORS } from '@/constants.ts';
+import { error, group, log, warn } from '@/utils/debug.ts';
 
 export function buildArray(value: string): string[] {
     return value.split(',').map((element) => element.trim()).filter(Boolean);
@@ -6,16 +7,37 @@ export function buildArray(value: string): string[] {
 
 export function getColumnsSelector(prColumns: string[]): string {
     const selectors: string[] = [];
-    document.querySelectorAll(SELECTORS.columnHeader).forEach((header, index) => {
+    const headers = document.querySelectorAll(SELECTORS.columnHeader);
+    if (!headers.length) {
+        error(`no column headers found via "${SELECTORS.columnHeader}" - the selector is stale`);
+    }
+
+    const seen: { index: number, detail: Record<string, unknown>, header: Element }[] = [];
+    headers.forEach((header, index) => {
         // Atlassian appends ", total issue count: N" to the aria-label, so strip it off.
-        const columnTitle = header.getAttribute('aria-label')?.split(', total issue count:')[0];
-        if (!columnTitle) {
-            throw new Error('Can\'t find column headers');
-        }
-        if (prColumns.indexOf(columnTitle) !== -1) {
+        const ariaLabel = header.getAttribute('aria-label');
+        const columnTitle = ariaLabel?.split(', total issue count:')[0];
+        const matchesConfig = !!columnTitle && prColumns.indexOf(columnTitle) !== -1;
+
+        if (matchesConfig) {
             selectors.push(`${SELECTORS.column}:nth-child(${index + 1})`);
+        } else if (!columnTitle) {
+            warn(`column header #${index} has no aria-label, skipping`, header);
         }
+
+        seen.push({
+            index,
+            detail: {
+                ariaLabel, parsedTitle: columnTitle, text: header.textContent, matchesConfig,
+            },
+            header,
+        });
     });
+
+    group(`column headers (${headers.length})`, () => {
+        seen.forEach(({ index, detail, header }) => log(index, detail, header));
+    });
+    log('getColumnsSelector: configured columns', prColumns, '-> selectors', selectors);
 
     return selectors.join(',');
 }
@@ -25,8 +47,11 @@ export function isHTMLElement(el: Node): el is HTMLElement {
 }
 
 export async function fetchData<T>(url: string, options?: RequestInit): Promise<T> {
+    log('fetch ->', url);
     const response = await fetch(url, options);
+    log(`fetch <- ${response.status} ${response.statusText}`, url);
     if (!response.ok) {
+        error(`request failed: ${response.status} ${response.statusText}`, url);
         throw new Error(response.statusText);
     }
 

@@ -21,5 +21,10 @@ export const SELECTORS = {
     column: '[data-component-selector="platform-board-kit.ui.column.draggable-column"]',
     columnHeader: '[data-component-selector="platform-board-kit.ui.column-title"]',
     card: '[data-component-selector="platform-board-kit.ui.card-container"]',
-    labelsContainer: 'div[class*="_content"] > div:last-child',
+    // The card body is a stack of content sections; the footer (key, dev-info
+    // icon, priority, assignee) is the last one, and we slot in just above it.
+    // Anchored on data attributes because the classes are Compiled atomic hashes.
+    labelsContainer: '[data-testid="platform-card.ui.card.card-content.footer"]',
+    contentSection: '[data-component-selector="platform-card.ui.card.card-content.content-section"]',
+    cardKey: '[data-testid="platform-card.common.ui.key.key"]',
 } as const;

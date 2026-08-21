@@ -2,6 +2,7 @@ import {
     DataFetcher, LabelData, PullRequestDetailsData, RequestDetailsData, ReviewerData, UserData,
 } from '@/types.ts';
 import { fetchData, fetchJiraRest } from '@/utils/utils.ts';
+import { log, warn } from '@/utils/debug.ts';
 
 type JiraCardData = {
     id: string
@@ -81,10 +82,14 @@ export default class GitHubFetcher implements DataFetcher {
     }
 
     async getRequestsList(cardKey: string): Promise<RequestDetailsData[]> {
+        log('getRequestsList: cardKey =', cardKey);
         const { id } = await fetchJiraRest<JiraCardData>(`/api/3/issue/${cardKey}?fields=id`);
+        log('getRequestsList: issue id =', id, 'for', cardKey);
 
         const applicationType = await this.getApplicationType(id);
+        log('getRequestsList: applicationType =', applicationType, 'for', cardKey);
         if (!applicationType) {
+            warn('no applicationType - Jira reports no linked PRs for', cardKey);
             return [];
         }
 
@@ -92,10 +97,12 @@ export default class GitHubFetcher implements DataFetcher {
             `/dev-status/latest/issue/detail?issueId=${id}&applicationType=${applicationType}&dataType=pullrequest`,
         );
 
-        return detail?.[0]?.pullRequests?.map((item) => ({
+        const requests = detail?.[0]?.pullRequests?.map((item) => ({
             ...item,
             id: item.id.replace('#', ''),
         })) || [];
+        log(`getRequestsList: ${requests.length} PR(s) for ${cardKey}`, requests);
+        return requests;
     }
 
     async getRequestDetails(requestData: RequestDetailsData): Promise<PullRequestDetailsData> {
